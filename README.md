@@ -106,3 +106,20 @@ python -m ocr_evolution.real_corpus --manifest /private/ocr/audited_manifest.jso
 ```
 
 **안전:** Ouroboros/Cerberus/Fenrir와 기억·실행권·데이터를 공유하지 않으며 `main` 변경·자동 병합·OCR 모델 자동 승격을 수행하지 않습니다.
+
+## C2.2.1 · 실물 스캔 2–10건 독립 수동 전사·CER/WER 게이트
+
+- 2~10장의 실제 종이 문서 촬영·스캔 원본을 외부 승인된 **비공개 로컬 폴더**에 보관하고, 문서 출처/사용 권한·원본 SHA-256·서로 다른 출처 그룹 2개 이상을 검증하는 `c221_audit` 실행기를 추가했습니다.
+- 별도 파일에 제출된 **서로 다른 두 사람의 블라인드 전체 전사문**이 동일해야 OCR 비교가 가능해집니다. 불일치, 경로 이탈, 위조 해시, 권한 미확인, 기계 OCR 전사 재사용은 **전체 평가 차단**으로 처리합니다.
+- 최종 측정은 실제 Tesseract `kor+eng`와 문자/단어 Levenshtein 계산으로 진행하고, 외부 공개용 결과에는 이미지·전사 원문·개인정보 대신 점수/카운트와 원본 해시만 기록합니다.
+- [C2.2.1 2인 검토 절차](docs/OCR_EVOLUTION_C221.md) · [Windows·Linux CI](.github/workflows/ocr-evolution-c221.yml)
+- **중요:** 자동 CI의 리뷰어와 이미지는 **테스트용 가상 자료**입니다. 지금까지 독립적인 실제 사람 2명이 검토한 실물 스캔 2~10장은 제공되지 않았으므로 실문서 CER/WER 게이트는 **BLOCKED**, 실제 측정값은 `N/A`입니다. 코드 테스트 PASS가 실문서 검증 완료를 뜻하지 않습니다.
+
+```sh
+python -m pip install -e ".[test]"
+python -m unittest discover -s tests -p test_c221_audit.py -v
+# 실제 소유 문서의 사진 2~10장을 Git 저장소 밖 안전한 로컬 폴더에 넣은 다음:
+python -m ocr_evolution.c221_audit --root /private/private-ocr-c221 --prepare-images scan_01.png scan_02.png
+# 서로 다른 실제 검토자가 각자 입력 파일을 작성해 합의 후:
+python -m ocr_evolution.c221_audit --batch /private/private-ocr-c221/review-intake.json --root /private/private-ocr-c221 --private-output /private/private-ocr-c221/results/c221_metrics.json
+```
