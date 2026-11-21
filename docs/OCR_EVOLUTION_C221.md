@@ -44,6 +44,42 @@ create independent second reviewer automatically. Browser support for image
 preview and `crypto.subtle` varies; use a compatible local browser or
 fill the JSON directly from the private templates.
 
+## Evidence-backed receipt candidate intake (2 actual downloaded files, NOT verified paper)
+
+A prior real GitHub Actions run [44958514838](https://github.com/js775315672-spec/OCR-Evolution-Engine/actions/runs/44958514838)
+actually downloaded two source images and recorded immutable upstream revision,
+per-image SHA-256, dimensions and decoded formats. Those facts are pinned in
+[`benchmarks/c221_real_receipt_review_queue.json`](../benchmarks/c221_real_receipt_review_queue.json).
+Both candidates are **MPO encoded images** and belong to a public collection
+containing both physically collected and simulated receipts. Thus the file
+hashes are trustworthy as byte identity, but **physical real-paper origin
+is NOT VERIFIED**. No independent full text transcription is present.
+
+To obtain those exact source files *privately* for genuine external inspection:
+
+```sh
+python -m pip install -e ".[test]"
+python -m pip install "huggingface_hub>=0.34,<2"
+# Explicit owner/operator network download consent required:
+OCR_C221_EXTERNAL_DATA_CONSENT=1 python -m ocr_evolution.c221_source_intake \
+  --queue benchmarks/c221_real_receipt_review_queue.json \
+  --private-dir /private/c221-original-public-candidates
+```
+
+The source downloader pins the upstream dataset commit, checks **every**
+byte-hash, recorded size, decoded image format and dimensions against actual
+GitHub CI evidence, refuses to overwrite existing folders, and **never**
+writes a copy inside Git. It creates only a local `REVIEW_STATUS.json`
+with real-world photo provenance and two-human transcriptions **both marked
+unverified**. The script has no way to certify an original paper capture and
+does not auto-promote either candidate. This is a **data acquisition step,
+not a successful human-review or CER/WER measurement**.
+
+For a *true* 2–10 scan evaluation, choose unrelated physically documented
+paper sources with explicit owner rights and two genuinely independent
+reviewers as described below. If public receipt provenance remains uncertain,
+use your own physically captured paper with a real permission record instead.
+
 ## Local-only preparation workflow
 
 1. Select **2–10 physically captured paper documents**, ideally from at
