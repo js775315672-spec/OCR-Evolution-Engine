@@ -205,7 +205,19 @@ def run_public(out_dir: Path, *, api_factory=None, download_factory=None, ocr=No
                 return extracted[ident]
             return Path(download_factory(
                 repo_id=repo, repo_type="dataset", filename=actual_path, revision=revisions[repo]))
-        gist = measure_published_crops(download, ocr or call_tesseract)
+        try:
+            gist = measure_published_crops(download, ocr or call_tesseract)
+        except ValueError as exc:
+            if "exceeds 750 MiB budget" not in str(exc):
+                raise
+            gist = {
+                "status": "BLOCKED_RESOURCE_BUDGET",
+                "cases": [], "aggregate": None, "measured_count": 0,
+                "reason": str(exc),
+                "metric_scope": "publisher-reviewed real Korean scene crops unavailable within bounded transfer",
+                "promotion_eligible": False,
+            }
+        # Korean receipt acquisition is independent of the optional signboard crop benchmark.
         receipts = intake_unlabeled_receipts(download)
     result = {
         "schema_version": 1, "phase": "C2.2",
@@ -234,12 +246,15 @@ def run_public(out_dir: Path, *, api_factory=None, download_factory=None, ocr=No
     (out_dir / "results.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     aggregate = result["real_korean_scene_crops"]["aggregate"]
+    scene_row = (f'| Korean real signboard photo crops | {aggregate["count"]} | '
+                 f'{aggregate["cer"]:.4f} | {aggregate["wer"]:.4f} |') if aggregate else (
+                 '| Korean real signboard photo crops (transfer budget BLOCKED) | 0 | N/A | N/A |')
     lines = ["# C2.2 real Korean camera-source intake", "",
              "Scene-text crop CER/WER use K-STR-Bench publisher labels; NOT a paper document score.",
              "Korean receipt images have NO independently reviewed transcript (CER/WER=N/A).", "",
              "| Source | Cases | CER | WER |",
              "|---|---:|---:|---:|",
-             f'| Korean real signboard photo crops | {aggregate["count"]} | {aggregate["cer"]:.4f} | {aggregate["wer"]:.4f} |',
+             scene_row,
              f'| Korean mixed-source receipt images (unlabeled) | {len(result["korean_receipt_review_queue"])} | N/A | N/A |',
              "", "All exact source SHA-256 and upstream revisions are in results.json.",
              "No physical receipt image has been certified by a reviewer. No automatic improvement claim.", ""]
@@ -253,10 +268,13 @@ def main():
     args = parser.parse_args()
     report = run_public(args.output_dir)
     metrics = report["real_korean_scene_crops"]["aggregate"]
-    print("REAL KOREAN SCENE TEXT: n=", metrics["count"],
-          "CER=", round(metrics["cer"], 5), "WER=", round(metrics["wer"], 5),
-          "; UNVERIFIED RECEIPTS:", len(report["korean_receipt_review_queue"]),
-          "; VERIFIED SCANS: 0")
+    if metrics is None:
+        print("REAL KOREAN SCENE TEXT BLOCKED: budget; CER/WER=N/A")
+    else:
+        print("REAL KOREAN SCENE TEXT: n=", metrics["count"],
+              "CER=", round(metrics["cer"], 5), "WER=", round(metrics["wer"], 5))
+    print("UNVERIFIED RECEIPT IMAGES:", len(report["korean_receipt_review_queue"]),
+          "; PHYSICAL SCANS WITH TWO HUMAN TRANSCRIPTIONS: 0")
 
 
 if __name__ == "__main__":
