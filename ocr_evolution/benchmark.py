@@ -87,6 +87,13 @@ def _run(args: list[str]) -> str:
     return finished.stdout
 
 
+def segmentation_mode(category: str) -> int:
+    """Use sparse-text mode for grids; keep prose in uniform-block mode."""
+    if category not in CATEGORIES:
+        raise ValueError("unsupported OCR fixture category")
+    return 11 if category == "table" else 6
+
+
 def benchmark(manifest_path: Path, output_dir: Path, font_path: str,
               tesseract: str = "tesseract") -> dict:
     manifest, manifest_bytes = load_manifest(manifest_path)
@@ -104,9 +111,11 @@ def benchmark(manifest_path: Path, output_dir: Path, font_path: str,
     for case in manifest["cases"]:
         image = images / (case["case_id"] + ".png")
         image_sha = render(case, image, font_path)
-        output = _run([tesseract, str(image), "stdout", "-l", "kor+eng", "--psm", "6"])
+        psm = segmentation_mode(case["category"])
+        output = _run([tesseract, str(image), "stdout", "-l", "kor+eng", "--psm", str(psm)])
         predictions.append({
             **case, "split": "development", "observed_text": output.strip(),
+            "page_segmentation_mode": psm,
             "image_file": "images/" + image.name, "image_sha256": image_sha,
         })
     measurements = evaluate_predictions(predictions)
