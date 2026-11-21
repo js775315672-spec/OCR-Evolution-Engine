@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import subprocess
 from tempfile import TemporaryDirectory
+import tarfile
 
 from PIL import Image
 
@@ -110,22 +111,72 @@ def call_tesseract(path, *, psm):
 
 
 def find_publisher_asset_paths(api, revision):
-    """Resolve published CSV image basenames to *actual* pinned repository paths.
+    """Resolve individual GIST crops or the official text_images.tar archive.
 
-    A preview path is not a promise that the underlying file is at that location.
-    Never fetch another subset (AIHub/KAIST) by accident.
+    Upstream distributes text crops in a tar, not as individual HF files.
+    Refuse any KAIST/AIHub substitution and any ambiguous basename.
     """
     listed = api.list_repo_files(repo_id=GIST_REPO, repo_type="dataset", revision=revision)
-    selected = {}
-    for ident, preview_path, _ in GIST_CASES:
-        basename = preview_path.rsplit("/", 1)[-1].lower()
-        hits = [name for name in listed
-                if name.startswith("GIST_Signboard/") and name.rsplit("/", 1)[-1].lower() == basename]
+    paths = {}
+    complete = True
+    for ident, preview, _ in GIST_CASES:
+        name = preview.rsplit("/", 1)[-1].lower()
+        hits = [p for p in listed if p.startswith("GIST_Signboard/")
+                and p.rsplit("/", 1)[-1].lower() == name]
         if len(hits) != 1:
-            sample = [name for name in listed if name.startswith("GIST_Signboard/")][:8]
-            raise ValueError(f"cannot uniquely resolve {basename}; GIST repository examples: {sample}")
-        selected[ident] = hits[0]
-    return selected
+            complete = False
+            break
+        paths[ident] = hits[0]
+    if complete:
+        return paths
+    tar_candidates = [p for p in listed if p == "GIST_Signboard/text_images.tar"]
+    if len(tar_candidates) == 1:
+        return {ident: "archive:" + tar_candidates[0] for ident, _, _ in GIST_CASES}
+    sample = [p for p in listed if p.startswith("GIST_Signboard/")][:10]
+    raise ValueError(f"no authorized GIST crop files or archive; available: {sample}")
+
+
+def archive_byte_budget(api, revision, archive_path):
+    """Require verified remote archive metadata before any large transfer."""
+    tree = api.list_repo_tree(repo_id=GIST_REPO, repo_type="dataset",
+                              revision=revision, path_in_repo="GIST_Signboard",
+                              recursive=False, expand=True)
+    for entry in tree:
+        if getattr(entry, "path", None) == archive_path:
+            size = getattr(entry, "size", None)
+            if not isinstance(size, int) or size <= 0 or size > 750 * 1024 * 1024:
+                raise ValueError(f"GIST text crop archive exceeds 750 MiB budget or size unknown: {size}")
+            return size
+    raise ValueError("pinned GIST archive size metadata not found")
+
+
+def extract_selected_crop_members(archive_path, scratch_dir):
+    """Read individual safe tar members without extracting arbitrary paths."""
+    selected = {}
+    with tarfile.open(archive_path, "r:*") as tar:
+        members = {}
+        wanted = {p.rsplit("/", 1)[-1].lower(): ident for ident, p, _ in GIST_CASES}
+        for member in tar:
+            base = member.name.rsplit("/", 1)[-1].lower()
+            if base not in wanted:
+                continue
+            if not member.isfile() or member.size <= 0 or member.size > 12 * 1024 * 1024:
+                raise ValueError("bad source crop tar member")
+            ident = wanted[base]
+            if ident in members:
+                raise ValueError("duplicate ambiguous source crop inside tar")
+            fileobj = tar.extractfile(member)
+            if fileobj is None:
+                raise ValueError("unreadable tar entry")
+            payload = fileobj.read(12 * 1024 * 1024 + 1)
+            if len(payload) != member.size:
+                raise ValueError("invalid crop member length")
+            path = Path(scratch_dir) / (ident + ".jpg")
+            path.write_bytes(payload)
+            members[ident] = path
+        if len(members) != len(GIST_CASES):
+            raise ValueError(f"source crop IDs missing from tar: {sorted(set(wanted.values()) - set(members))}")
+        return members
 
 
 def run_public(out_dir: Path, *, api_factory=None, download_factory=None, ocr=None):
@@ -139,15 +190,31 @@ def run_public(out_dir: Path, *, api_factory=None, download_factory=None, ocr=No
     revisions = {repo: immutable_revision(api.dataset_info(repo)) for repo in (GIST_REPO, RECEIPT_REPO)}
     asset_paths = find_publisher_asset_paths(api, revisions[GIST_REPO])
     by_preview = {path: asset_paths[ident] for ident, path, _ in GIST_CASES}
-    def download(repo, relative):
-        actual_path = by_preview[relative] if repo == GIST_REPO else relative
-        return Path(download_factory(
-            repo_id=repo, repo_type="dataset", filename=actual_path, revision=revisions[repo]))
+    with TemporaryDirectory(prefix="ocr-c22-sourced-") as scratch:
+        extracted = {}
+        def download(repo, relative):
+            actual_path = by_preview[relative] if repo == GIST_REPO else relative
+            if repo == GIST_REPO and actual_path.startswith("archive:"):
+                if not extracted:
+                    tar_path = actual_path[len("archive:"):]
+                    archive_byte_budget(api, revisions[repo], tar_path)
+                    local_archive = download_factory(
+                        repo_id=repo, repo_type="dataset", filename=tar_path, revision=revisions[repo])
+                    extracted.update(extract_selected_crop_members(local_archive, scratch))
+                ident = next(key for key, original, _ in GIST_CASES if original == relative)
+                return extracted[ident]
+            return Path(download_factory(
+                repo_id=repo, repo_type="dataset", filename=actual_path, revision=revisions[repo]))
+        gist = measure_published_crops(download, ocr or call_tesseract)
+        receipts = intake_unlabeled_receipts(download)
     result = {
         "schema_version": 1, "phase": "C2.2",
         "run_id": os.getenv("GITHUB_RUN_ID", "local"),
         "git_sha": os.getenv("GITHUB_SHA", "local"),
         "external_dataset_revisions": revisions,
+        "source_package_mode": ("pinned_text_images_tar" if
+                                any(p.startswith("archive:") for p in asset_paths.values())
+                                else "individually_pinned_files"),
         "licenses": {GIST_REPO: "GIST-Signboard subset CC-BY-4.0 only",
                      RECEIPT_REPO: "CC-BY-4.0"},
         "attributions": {
@@ -156,8 +223,8 @@ def run_public(out_dir: Path, *, api_factory=None, download_factory=None, ocr=No
         },
         "reference_integrity": "published author-reviewed scene-text labels; no second blind review",
         "image_artifact_policy": "no raw source images or unredacted OCR text in artifacts",
-        "real_korean_scene_crops": measure_published_crops(download, ocr or call_tesseract),
-        "korean_receipt_review_queue": intake_unlabeled_receipts(download),
+        "real_korean_scene_crops": gist,
+        "korean_receipt_review_queue": receipts,
         "physically_verified_document_scans_with_two_human_reviews": 0,
         "real_korean_receipt_cer_wer": None,
         "independent_hidden_holdout": False,
