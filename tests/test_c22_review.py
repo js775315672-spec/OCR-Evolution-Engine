@@ -1,6 +1,8 @@
 import hashlib
 import json
 import os
+import tarfile
+import io
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -11,7 +13,8 @@ from PIL import Image, ImageDraw
 
 from ocr_evolution.c22_review import adjudicate, build_local_manifest
 from ocr_evolution.c22_public import (GIST_CASES, RECEIPT_FILES, GIST_REPO, RECEIPT_REPO,
-                                       immutable_revision, inspect_image, run_public, find_publisher_asset_paths)
+                                       immutable_revision, inspect_image, run_public, find_publisher_asset_paths,
+                                       extract_selected_crop_members, archive_byte_budget)
 
 
 class C22ReviewTests(unittest.TestCase):
@@ -117,6 +120,32 @@ class C22SourceTests(unittest.TestCase):
                 return ["AIHub/images/gist_3_1.jpg", "KAIST_Corrected/images/gist_4_3.jpg"]
         with self.assertRaises(ValueError):
             find_publisher_asset_paths(MissingApi(), "a" * 40)
+
+    def test_safe_gist_archive_path_and_bounded_size(self):
+        class TarApi:
+            def list_repo_files(self, **kwargs):
+                return ["GIST_Signboard/text_images.tar", "KAIST_Corrected/text_images.tar"]
+            def list_repo_tree(self, **kwargs):
+                return [SimpleNamespace(path="GIST_Signboard/text_images.tar", size=100000)]
+        paths = find_publisher_asset_paths(TarApi(), "a" * 40)
+        self.assertTrue(all(value == "archive:GIST_Signboard/text_images.tar" for value in paths.values()))
+        self.assertEqual(archive_byte_budget(TarApi(), "a" * 40, "GIST_Signboard/text_images.tar"), 100000)
+
+    def test_exact_selected_members_only(self):
+        with TemporaryDirectory() as tmp:
+            archive = Path(tmp) / "crops.tar"
+            with tarfile.open(archive, "w") as tar:
+                for ident, preview, _ in GIST_CASES:
+                    payload = b"sample-source-image-bytes" + ident.encode()
+                    member = tarfile.TarInfo(name="text_images/0/" + ident + ".jpg")
+                    member.size = len(payload)
+                    tar.addfile(member, io.BytesIO(payload))
+                ignored = tarfile.TarInfo(name="../../other_dataset/untrusted.txt")
+                ignored.size = 4
+                tar.addfile(ignored, io.BytesIO(b"junk"))
+            extracted = extract_selected_crop_members(archive, Path(tmp))
+            self.assertEqual(len(extracted), 3)
+            self.assertFalse((Path(tmp).parent / "untrusted.txt").exists())
 
     def test_real_crops_score_only_published_labels(self):
         with TemporaryDirectory() as tmp:
