@@ -84,7 +84,7 @@ python -m ocr_evolution.real_corpus --manifest /private/ocr/manifest.json --corp
 
 ## C2.2 · 실제 촬영 한국어 OCR 및 수동 전사 정답 수집 게이트
 
-**개발 중인 C2.2 평가 트랙은 문서 유형을 구분합니다.** 한국어 실사 촬영 간판 글자 3개([K-STR-Bench GIST-Signboard](https://huggingface.co/datasets/hoonisone/K-STR-Bench), 해당 부분집합 CC BY 4.0)는 출판자의 검토된 정답 라벨로 OCR CER/WER를 계산합니다. 하지만 간판은 영수증·종이 스캔 문서가 아니므로 별도 지표로만 보고합니다.
+**개발 중인 C2.2 평가 트랙은 문서 유형을 구분합니다.** 한국어 실사 촬영 간판 글자 3개([K-STR-Bench GIST-Signboard](https://huggingface.co/datasets/hoonisone/K-STR-Bench), 해당 부분집합 CC BY 4.0)를 평가하도록 구현했지만, 공식 이미지 압축 파일이 **1,427,559,424 bytes**여서 750MiB 다운로드 한도에 따라 **BLOCKED**, 현재 CER/WER는 **N/A**야. 향후 더 작은 라이선스 확인 데이터나 별도 승인된 다운로드에서만 실제 수치를 산출해. 하지만 간판은 영수증·종이 스캔 문서가 아니므로 별도 지표로만 보고합니다.
 
 한국어 영수증 원본 후보 2개([HumynLabs](https://huggingface.co/datasets/HumynLabs/Korean_Receipts_Dataset), CC BY 4.0)는 실제 공개 이미지를 CI에서 받아 파일 해시를 기록하고, 물리적 촬영 여부 및 사람의 완전 전사문을 확인하기 전에는 CER/WER를 **N/A**로 고정합니다. 원본 이미지와 OCR 원문은 GitHub CI 아티팩트에 업로드하지 않습니다.
 
