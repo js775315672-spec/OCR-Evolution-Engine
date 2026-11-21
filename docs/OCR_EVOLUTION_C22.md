@@ -18,7 +18,13 @@ label a newly audited two-person ground truth. Do not confuse full receipt
 recognition with cropped signboard text recognition.
 
 The C2.2 public-source script pins both Hugging Face dataset revisions as full
-SHA-1 commit IDs, downloads only five designated input images in the CI
+SHA-1 commit IDs. K-STR-Bench publishes the GIST cropped images inside
+`GIST_Signboard/text_images.tar` rather than individual HF paths; the runner
+verifies archive size (maximum 750 MiB), fetches this pinned one archive only
+if necessary, and safely extracts ONLY three permitted Korean crop members
+without trusting tar paths. It then downloads the two receipt images. This is
+more network transfer than individual image access and is a C2.2 cost limit.
+It uses these five selected input images in the CI
 ephemeral runner, verifies their format/dimensions, and records per-image
 SHA-256, license, author attribution and reference source. **No source image,
 personal receipt text, unredacted OCR output or full human transcription is
