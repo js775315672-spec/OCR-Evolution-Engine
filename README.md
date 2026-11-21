@@ -45,3 +45,18 @@ python -m unittest discover -v
 | Harness-Ouroboros-MCP | `6b44c67a4f69cdc7cbbd983356e5795a551b48fc` |
 | Cerberus | `bdc1589516f0348e23efe0a61d3cac163ce5be29` |
 | Fenrir-Agent | `b1454fc9bab573b7018103cce35e9a443b68dfd4` |
+
+## C2 · 한국어/표/저화질 CER·WER 평가 (Draft PR #2)
+
+- 공개된 **합성 개발용** 원본 6건(한국어 2, 3열 표 2, 저화질 2)의 정답 문장과 재현 가능한 PNG 생성기: [평가셋](benchmarks/c2_synthetic_manifest.json)
+- 실제 Tesseract `kor+eng` 실행 후 **CER/WER, 케이스별 실패, 매니페스트/이미지 SHA-256**를 JSON·Markdown·PNG 아티팩트로 저장: [C2 워크플로](.github/workflows/ocr-evolution-c2.yml)
+- Unicode NFC 정규화 및 Levenshtein 거리 기반, 값이 100% 초과해도 기록. Windows·Linux 계산/계약 테스트 및 Linux 실제 OCR 평가.
+- 실행 방법·평가의 한계·숨겨진 독립 평가셋 선행조건은 [C2 명세](docs/OCR_EVOLUTION_C2.md) 참조.
+- **중요:** 합성 개발셋의 테스트 통과는 한국어 실문서 성능이나 자율 모델 개선이 입증되었다는 뜻이 아니며, 자동 승격/병합 기능은 없음.
+
+```sh
+python -m pip install -e ".[test,benchmark]"
+python -m unittest discover -s tests -p 'test_c2_metrics.py' -v
+# Ubuntu + NanumGothic + Tesseract kor/eng 설치 후
+python -m ocr_evolution.benchmark --font /usr/share/fonts/truetype/nanum/NanumGothic.ttf
+```
