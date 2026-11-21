@@ -109,6 +109,25 @@ def call_tesseract(path, *, psm):
     return result.stdout.strip()
 
 
+def find_publisher_asset_paths(api, revision):
+    """Resolve published CSV image basenames to *actual* pinned repository paths.
+
+    A preview path is not a promise that the underlying file is at that location.
+    Never fetch another subset (AIHub/KAIST) by accident.
+    """
+    listed = api.list_repo_files(repo_id=GIST_REPO, repo_type="dataset", revision=revision)
+    selected = {}
+    for ident, preview_path, _ in GIST_CASES:
+        basename = preview_path.rsplit("/", 1)[-1].lower()
+        hits = [name for name in listed
+                if name.startswith("GIST_Signboard/") and name.rsplit("/", 1)[-1].lower() == basename]
+        if len(hits) != 1:
+            sample = [name for name in listed if name.startswith("GIST_Signboard/")][:8]
+            raise ValueError(f"cannot uniquely resolve {basename}; GIST repository examples: {sample}")
+        selected[ident] = hits[0]
+    return selected
+
+
 def run_public(out_dir: Path, *, api_factory=None, download_factory=None, ocr=None):
     if os.environ.get("OCR_C22_EXTERNAL_DATA_CONSENT") != "1":
         raise RuntimeError("OCR_C22_EXTERNAL_DATA_CONSENT=1 required")
@@ -118,9 +137,12 @@ def run_public(out_dir: Path, *, api_factory=None, download_factory=None, ocr=No
         download_factory = download_factory or hf_hub_download
     api = api_factory()
     revisions = {repo: immutable_revision(api.dataset_info(repo)) for repo in (GIST_REPO, RECEIPT_REPO)}
+    asset_paths = find_publisher_asset_paths(api, revisions[GIST_REPO])
+    by_preview = {path: asset_paths[ident] for ident, path, _ in GIST_CASES}
     def download(repo, relative):
+        actual_path = by_preview[relative] if repo == GIST_REPO else relative
         return Path(download_factory(
-            repo_id=repo, repo_type="dataset", filename=relative, revision=revisions[repo]))
+            repo_id=repo, repo_type="dataset", filename=actual_path, revision=revisions[repo]))
     result = {
         "schema_version": 1, "phase": "C2.2",
         "run_id": os.getenv("GITHUB_RUN_ID", "local"),
