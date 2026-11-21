@@ -126,3 +126,21 @@ def evaluate_local_corpus(manifest_path: Path, corpus_root: Path,
         "cases": details,
         "promotion_eligible": False, "independent_hidden_holdout": False,
     }
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Run a local-only, audited real-scan OCR evaluation")
+    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--corpus-root", type=Path, required=True)
+    parser.add_argument("--output", type=Path, default=Path("reports/c21-local/results.json"))
+    args = parser.parse_args()
+    result = evaluate_local_corpus(args.manifest, args.corpus_root)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print("Local real-scan evaluation complete: ",
+          result["source_count"], "images;",
+          result["full_transcriptions_count"], "human-verified full transcripts;")
+
+
+if __name__ == "__main__":
+    main()
