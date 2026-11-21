@@ -36,6 +36,11 @@ rather than shipped from an unknown external dataset.
 - Missing predictions must fail evaluation; never silently drop difficult
   cases. The benchmark runs Tesseract 6/6 times, recording empty outputs
   as errors rather than omitted results.
+- Layout configuration: Tesseract PSM 6 is used for Korean prose and degraded
+  prose, while PSM 11 (sparse text) is used for table grids. This is a
+  **development-set-selected** heuristic, not an unbiased improvement claim.
+  Each case records the mode used. Baseline run 44925077811 (PSM 6 for all
+  cases) returned empty output for both table examples (table CER/WER 1.0).
 
 ## Reproduce on Ubuntu
 
