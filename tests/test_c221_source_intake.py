@@ -83,7 +83,7 @@ class C221SourceIntakeTests(unittest.TestCase):
             self.assertIsNone(result["actual_paper_scan_cer"])
             self.assertFalse(result["physical_capture_verified"])
             self.assertEqual(len(list(dest.glob("receipt_candidate_*"))),2)
-            self.assertNotIn("transcription",(dest/"REVIEW_STATUS.json").read_text())
+            self.assertNotIn("full_human_text",(dest/"REVIEW_STATUS.json").read_text())
 
     def test_no_network_consent_blocks(self):
         with TemporaryDirectory() as root:
