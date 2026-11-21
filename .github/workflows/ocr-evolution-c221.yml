@@ -30,7 +30,7 @@ jobs:
       - name: Install OCR test dependency
         run: python -m pip install -e ".[test]"
       - name: Strict 2-10 batch contract regression tests, synthetic fixtures only
-        run: python -m unittest discover -s tests -p test_c221_audit.py -v
+        run: python -m unittest discover -s tests -p "test_c221*.py" -v
   actual-human-evidence:
     name: Actual two-human scan evidence status (BLOCKED until supplied)
     runs-on: ubuntu-latest
