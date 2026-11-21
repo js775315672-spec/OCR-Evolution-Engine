@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; object-src 'none'; base-uri 'none'">
+<title>C2.2.1 OCR 2인 독립 전사 - 오프라인</title>
+<style>
+body{background:#f5f7fa;color:#182433;font:16px system-ui,sans-serif;max-width:900px;margin:2rem auto;padding:0 1rem;line-height:1.5}
+section{background:white;padding:1.25rem;margin:1rem 0;border:1px solid #d1d5db;border-radius:12px}
+label{font-weight:600;display:block;margin:1rem 0 .4rem}
+input[type=text],select,textarea{box-sizing:border-box;width:100%;border:1px solid #9ca3af;border-radius:7px;font:inherit;padding:.6rem}
+textarea{height:16rem;resize:vertical;white-space:pre-wrap}
+button{font:inherit;background:#185d81;color:#fff;border:0;border-radius:7px;padding:.75rem 1.2rem;cursor:pointer}
+button:disabled{background:#777;cursor:not-allowed}
+img{max-width:100%;max-height:650px;display:block;margin:1rem auto;border:1px solid #aaa}
+.small{font-size:.875rem;color:#485363} .warn{color:#a2341c}.status{white-space:pre-wrap}
+</style>
+</head>
+<body>
+<h1>C2.2.1 OCR — 실제 문서 수동 전사</h1>
+<p>이 도구는 인터넷에 연결하지 않습니다. 파일은 현재 브라우저에서만 열리며,
+사진이나 전사문을 전송하지 않습니다. <strong>각 검토자는 서로의 전사문과 OCR 출력을 보지 않고 독립 작성</strong>해야 합니다.</p>
+<section>
+<label for="photo">1. 실제 종이 문서를 촬영·스캔한 사진 선택 (PNG/JPG/TIFF 일부 브라우저는 TIFF 미지원)</label>
+<input id="photo" type="file" accept="image/png,image/jpeg,image/tiff">
+<div class="small">원본 파일을 수정하거나 압축을 다시 하지 마세요. 검토자는 반드시 동일한 원본 바이트를 사용해야 합니다.</div>
+<img id="preview" hidden alt="선택한 실제 문서">
+<div id="hash" class="small status">이미지를 선택하면 SHA-256을 계산합니다.</div>
+<label for="case">2. 케이스 ID (양 검토자 동일)</label>
+<input id="case" type="text" value="scan_01" pattern="[a-z0-9_]{2,60}">
+<label for="reviewer">3. 실제 검토자 ID (서로 다른 ID 사용)</label>
+<input id="reviewer" type="text" placeholder="reviewer_a" pattern="[A-Za-z0-9_.-]{3,80}">
+<label for="slot">4. 제출할 검토 슬롯</label>
+<select id="slot"><option value="a">검토자 A</option><option value="b">검토자 B</option></select>
+<label for="transcription">5. 이미지의 전체 원문 그대로 작성 (단락/줄바꿈 포함)</label>
+<textarea id="transcription" autocomplete="off" spellcheck="false" placeholder="이미지를 보고 사람이 직접 전체 텍스트를 전사하세요. OCR 초안은 참고하지 마세요."></textarea>
+<label><input id="visual" type="checkbox"> 제가 원본 이미지를 직접 보며 전사했습니다.</label>
+<label><input id="blind" type="checkbox"> 다른 검토자의 전사문을 보지 않았습니다.</label>
+<label><input id="noocr" type="checkbox"> OCR/AI가 추출한 문장을 복사하거나 전사에 사용하지 않았습니다.</label>
+<button type="button" id="save">검토 기록 JSON을 이 기기에 저장</button>
+<p id="status" class="status small" role="status"></p>
+</section>
+<section>
+<h2>검토 제출 후 절차</h2>
+<p>서로 다른 두 사람이 동일 이미지에 대해 각자 저장한
+<code>reviews/reviewer_a_01.json</code>과 <code>reviews/reviewer_b_01.json</code>
+파일을 로컬 비공개 폴더로 모으세요.
+원본의 출처·권한·촬영 방법을 별도로 확인한 다음
+<code>review-intake.json</code>의 필드를 채우고
+<code>python -m ocr_evolution.c221_audit --batch ... --root ... --private-output ...</code>을 실행하세요.
+전사 내용이 다르면 자동 통과하지 않고 재검토해야 합니다.</p>
+<p class="warn"><strong>주의:</strong> 체크박스는 검토자의 진술입니다. 검토자가 실제 사람인지,
+실제 사진인지, 독립적으로 전사했는지는 프로그램이 증명하지 못합니다.
+CI나 ChatGPT가 체크박스를 대신 선택해서는 안 됩니다.</p>
+</section>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let imageUrl = null;
+function hex(buffer) {
+  return Array.from(new Uint8Array(buffer)).map(n => n.toString(16).padStart(2,"0")).join("");
+}
+async function digestFile(file) {
+  if (!globalThis.crypto || !crypto.subtle) {
+    throw new Error("이 브라우저에서 SHA-256 계산을 지원하지 않습니다. 최신 HTTPS/보안 로컬 브라우저를 사용하세요.");
+  }
+  if (file.size > 20 * 1024 * 1024 || file.size <= 0) throw new Error("이미지 크기는 1바이트~20MiB여야 합니다.");
+  return hex(await crypto.subtle.digest("SHA-256", await file.arrayBuffer()));
+}
+async function setPhoto() {
+  $("hash").textContent = "해시 계산 중...";
+  if(imageUrl) URL.revokeObjectURL(imageUrl);
+  $("preview").hidden = true;
+  const file = $("photo").files[0];
+  if (!file) return;
+  try {
+    $("hash").textContent = "원본 이미지 SHA-256: " + await digestFile(file);
+    if(file.type === "image/png" || file.type === "image/jpeg"){
+      imageUrl = URL.createObjectURL(file);
+      $("preview").src = imageUrl;
+      $("preview").hidden = false;
+    }
+  } catch(e) { $("hash").textContent = "오류: " + e.message; }
+}
+$("photo").addEventListener("change", setPhoto);
+$("save").addEventListener("click", async () => {
+  const status = $("status");
+  status.textContent = "";
+  try {
+    const file = $("photo").files[0];
+    if (!file || !["image/png","image/jpeg","image/tiff"].includes(file.type)) throw new Error("PNG/JPG/TIFF 원본을 선택하세요.");
+    const digest = await digestFile(file);
+    const caseId = $("case").value.trim();
+    const reviewer = $("reviewer").value.trim();
+    const transcript = $("transcription").value;
+    if(!/^[a-z0-9_]{2,60}$/.test(caseId)) throw new Error("케이스 ID 형식을 확인하세요.");
+    if(!/^[a-zA-Z0-9_.-]{3,80}$/.test(reviewer)) throw new Error("실제 검토자 ID가 필요합니다.");
+    if(!transcript.trim()) throw new Error("문서 전체 전사문을 입력하세요.");
+    if(!($("visual").checked && $("blind").checked && $("noocr").checked)) {
+      throw new Error("세 가지 독립 수동 검토 확인이 모두 필요합니다.");
+    }
+    const record = {
+      case_id:caseId, image_sha256:digest, reviewer_id:reviewer,
+      reviewed_at:new Date().toISOString(), transcription:transcript,
+      visual_review_attested:true, blind_review_attested:true,
+      no_ocr_assistance_attested:true
+    };
+    const name = "reviewer_" + $("slot").value + "_" + caseId.replace(/^scan_/,"") + ".json";
+    const blob = new Blob([JSON.stringify(record,null,2)],{type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href=url; a.download=name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    status.textContent="검토 기록 저장을 요청했습니다. 다운로드된 파일을 비공개 저장소 밖 폴더에 보관하세요.";
+  } catch (e) { status.textContent="저장 차단: " + e.message; }
+});
+</script>
+</body>
+</html>
