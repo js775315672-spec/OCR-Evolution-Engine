@@ -74,6 +74,7 @@ python -m ocr_evolution.benchmark --font /usr/share/fonts/truetype/nanum/NanumGo
 python -m pip install -e ".[test]"
 python -m unittest discover -s tests -p "test_c21*.py" -v
 # 공개 문서 2쪽을 실제 실행할 때만 다음 명령 사용 (네트워크 다운로드)
+python -m pip install "huggingface_hub>=0.34,<2"
 OCR_REAL_DATA_NETWORK_CONSENT=1 python -m ocr_evolution.kdoc_public --sample-count 2
 # 실제 개인 소유 스캔은 로컬에서만 평가
 python -m ocr_evolution.real_corpus --manifest /private/ocr/manifest.json --corpus-root /private/ocr
