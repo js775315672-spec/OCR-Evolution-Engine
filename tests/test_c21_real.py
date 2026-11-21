@@ -119,6 +119,22 @@ class LocalRealCorpusTests(TestCase):
             with self.assertRaises(ValueError):
                 load_corpus(manifest, Path(folder))
 
+    def test_private_local_owner_attestation(self):
+        with TemporaryDirectory() as folder:
+            case, manifest = self._make(folder)
+            case.pop("source_url")
+            case["provenance_kind"] = "user_owned_local"
+            case["permission_attested"] = True
+            manifest.write_text(json.dumps({"schema_version": 1, "public_split": "development",
+                                            "cases": [case]}, ensure_ascii=False), encoding="utf-8")
+            validated = load_corpus(manifest, Path(folder))
+            self.assertEqual(len(validated), 1)
+            case["permission_attested"] = False
+            manifest.write_text(json.dumps({"schema_version": 1, "public_split": "development",
+                                            "cases": [case]}, ensure_ascii=False), encoding="utf-8")
+            with self.assertRaises(ValueError):
+                load_corpus(manifest, Path(folder))
+
     def test_sparse_truth_does_not_create_cer(self):
         with TemporaryDirectory() as folder:
             case, manifest = self._make(folder)
