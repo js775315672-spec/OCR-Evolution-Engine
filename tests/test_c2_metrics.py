@@ -5,7 +5,7 @@ import unittest
 import unicodedata
 
 from ocr_evolution.metrics import edit_distance, evaluate_predictions, measure
-from ocr_evolution.benchmark import load_manifest
+from ocr_evolution.benchmark import load_manifest, segmentation_mode
 
 
 def fixture(case_id, category, truth="안녕하세요", observed="안녕하세요"):
@@ -61,6 +61,13 @@ class C2MetricTests(unittest.TestCase):
         cases[0]["split"] = "holdout"
         with self.assertRaises(ValueError):
             evaluate_predictions(cases)
+
+    def test_table_segmentation_mode(self):
+        self.assertEqual(segmentation_mode("korean"), 6)
+        self.assertEqual(segmentation_mode("low_quality"), 6)
+        self.assertEqual(segmentation_mode("table"), 11)
+        with self.assertRaises(ValueError):
+            segmentation_mode("unknown")
 
     def test_manifest_contract(self):
         manifest, source = load_manifest(Path("benchmarks/c2_synthetic_manifest.json"))
