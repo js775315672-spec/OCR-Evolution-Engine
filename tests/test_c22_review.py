@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw
 
 from ocr_evolution.c22_review import adjudicate, build_local_manifest
 from ocr_evolution.c22_public import (GIST_CASES, RECEIPT_FILES, GIST_REPO, RECEIPT_REPO,
-                                       immutable_revision, inspect_image, run_public)
+                                       immutable_revision, inspect_image, run_public, find_publisher_asset_paths)
 
 
 class C22ReviewTests(unittest.TestCase):
@@ -111,6 +111,13 @@ class C22SourceTests(unittest.TestCase):
                 run_public(Path("/tmp/unused"), api_factory=lambda: object(),
                            download_factory=lambda **kwargs: None)
 
+    def test_resolver_does_not_accept_other_subsets(self):
+        class MissingApi:
+            def list_repo_files(self, **kwargs):
+                return ["AIHub/images/gist_3_1.jpg", "KAIST_Corrected/images/gist_4_3.jpg"]
+        with self.assertRaises(ValueError):
+            find_publisher_asset_paths(MissingApi(), "a" * 40)
+
     def test_real_crops_score_only_published_labels(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -128,6 +135,8 @@ class C22SourceTests(unittest.TestCase):
             class FakeApi:
                 def dataset_info(self, repo):
                     return SimpleNamespace(sha="a" * 40)
+                def list_repo_files(self, **kwargs):
+                    return ["GIST_Signboard/crops/0/" + item[0] + ".jpg" for item in GIST_CASES]
             texts = {k: expected for k, _, expected in GIST_CASES}
             def fake_ocr(path, psm):
                 self.assertEqual(psm, 7)
