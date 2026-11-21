@@ -193,13 +193,80 @@ def ci_gate_status() -> dict:
     }
 
 
+
+def prepare_blind_review_templates(root: Path, image_names: list[str]) -> dict:
+    """Create private draft inputs, never prepopulate a claim or human text.
+
+    Reviewers fill their separate files only after actually reading the
+    original image. This function deliberately generates ZERO approved cases.
+    """
+    if not isinstance(image_names, list) or not 2 <= len(image_names) <= 10:
+        raise ValueError("prepare needs 2 to 10 distinct images")
+    _private_output_path(root / "review-intake.json")
+    images, digests = [], set()
+    for name in image_names:
+        image = _local_image(root, name)
+        digest = sha256(image.read_bytes()).hexdigest()
+        if digest in digests:
+            raise ValueError("duplicate image content in intake")
+        digests.add(digest)
+        images.append((name, digest))
+    review_dir = root / "reviews"
+    review_dir.mkdir(parents=True, exist_ok=True)
+    if (root / "review-intake.json").exists():
+        raise FileExistsError("review intake already exists; do not overwrite")
+    cases = []
+    pending = []
+    for idx, (name, digest) in enumerate(images, 1):
+        case_id = f"scan_{idx:02d}"
+        review_files = [f"reviews/reviewer_a_{idx:02d}.json",
+                        f"reviews/reviewer_b_{idx:02d}.json"]
+        cases.append({
+            "case_id": case_id, "image": name, "sha256": digest,
+            "category": None, "capture_method": None,
+            "human_original_document_attested": False,
+            "verified_physical_capture": False, "permission_attested": False,
+            "license": "", "source_group": None,
+            "review_files": review_files,
+        })
+        for filename in review_files:
+            draft = {
+                "case_id": case_id, "image_sha256": digest,
+                "reviewer_id": None, "reviewed_at": None,
+                "transcription": "",
+                "visual_review_attested": False,
+                "blind_review_attested": False,
+                "no_ocr_assistance_attested": False,
+            }
+            path = root / filename
+            pending.append((path, draft))
+    # Use exclusive create, never overwrite existing human submissions.
+    if any(path.exists() for path, _ in pending):
+        raise FileExistsError("review file already exists; do not overwrite")
+    for path, draft in pending:
+        write_private_report(path, draft)
+    document = {"schema_version": 1, "data_split": "development",
+                "cases": cases, "human_review_status": "UNREVIEWED_DRAFT_BLOCKED"}
+    write_private_report(root / "review-intake.json", document)
+    return {"draft_cases": len(cases), "approved_cases": 0,
+            "status": "BLOCKED_WAITING_FOR_PHYSICAL_SOURCE_AND_TWO_REAL_HUMAN_REVIEWS"}
+
+
+
 def main():
     parser = argparse.ArgumentParser(description="Offline-only 2-10 human-reviewed scan audit")
     parser.add_argument("--batch", type=Path)
     parser.add_argument("--root", type=Path)
     parser.add_argument("--private-output", type=Path)
     parser.add_argument("--ci-status", action="store_true")
+    parser.add_argument("--prepare-images", nargs="+")
     args = parser.parse_args()
+    if args.prepare_images:
+        if args.batch or args.private_output or not args.root:
+            parser.error("--prepare-images only accepts --root")
+        result = prepare_blind_review_templates(args.root, args.prepare_images)
+        print(json.dumps(result, sort_keys=True))
+        return
     if args.ci_status:
         print(json.dumps(ci_gate_status(), sort_keys=True))
         return
