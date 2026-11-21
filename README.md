@@ -81,3 +81,28 @@ python -m ocr_evolution.real_corpus --manifest /private/ocr/manifest.json --corp
 ```
 
 **원칙:** 개발·평가 데이터가 공개되어 있어도 숨겨진 독립 평가 또는 자율 지능 향상으로 간주하지 않으며, 모델 자동 업데이트와 자동 병합은 차단합니다.
+
+## C2.2 · 실제 촬영 한국어 OCR 및 수동 전사 정답 수집 게이트
+
+**개발 중인 C2.2 평가 트랙은 문서 유형을 구분합니다.** 한국어 실사 촬영 간판 글자 3개([K-STR-Bench GIST-Signboard](https://huggingface.co/datasets/hoonisone/K-STR-Bench), 해당 부분집합 CC BY 4.0)는 출판자의 검토된 정답 라벨로 OCR CER/WER를 계산합니다. 하지만 간판은 영수증·종이 스캔 문서가 아니므로 별도 지표로만 보고합니다.
+
+한국어 영수증 원본 후보 2개([HumynLabs](https://huggingface.co/datasets/HumynLabs/Korean_Receipts_Dataset), CC BY 4.0)는 실제 공개 이미지를 CI에서 받아 파일 해시를 기록하고, 물리적 촬영 여부 및 사람의 완전 전사문을 확인하기 전에는 CER/WER를 **N/A**로 고정합니다. 원본 이미지와 OCR 원문은 GitHub CI 아티팩트에 업로드하지 않습니다.
+
+실제 개인 소유 사진/스캔의 CER/WER 측정에는 **동일 이미지 SHA-256에 대한 서로 다른 두 사람의 직접 시각 전사·명시적 사용 권한·촬영 방식 검증**이 필요합니다. OCR이 스스로 제안한 텍스트는 정답으로 승격할 수 없습니다. 실물 스캔 확보와 한국어 실사 간판 시험은 동일한 성과가 아닙니다.
+
+- [실제 공개 사진 OCR 및 자료 수집 CI](.github/workflows/ocr-evolution-c22.yml)
+- [실물 스캔 2인 수동 전사·권리·CER/WER 절차](docs/OCR_EVOLUTION_C22.md)
+- 데이터 출처: Han & Hong (ACCV 2026) K-STR-Bench, HumynLabs Korean Receipts Dataset
+- 완료 판정: Windows/Linux 계약 테스트·실제 사진 CI PASS + 실물 문서 수동 정답 및 독립 홀드아웃은 **미완료 게이트**로 분리
+
+```sh
+python -m pip install -e ".[test]"
+python -m unittest discover -s tests -p "test_c22*.py" -v
+# Linux: tesseract-ocr / eng / kor 와 huggingface_hub 설치 후
+OCR_C22_EXTERNAL_DATA_CONSENT=1 python -m ocr_evolution.c22_public --output-dir reports/c22
+# 실물 사진을 두 명이 각각 직접 전사한 다음에만:
+python -m ocr_evolution.c22_review --review-request /private/ocr/reviews.json --image-root /private/ocr --out-manifest /private/ocr/audited_manifest.json
+python -m ocr_evolution.real_corpus --manifest /private/ocr/audited_manifest.json --corpus-root /private/ocr --output /private/ocr/measured.json
+```
+
+**안전:** Ouroboros/Cerberus/Fenrir와 기억·실행권·데이터를 공유하지 않으며 `main` 변경·자동 병합·OCR 모델 자동 승격을 수행하지 않습니다.
