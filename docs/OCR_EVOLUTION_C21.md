@@ -15,6 +15,7 @@ sentence-presence tests and table-cell/neighbor tests. The dataset annotations
 are CC BY 4.0 (attribute ONTHEIT). The original PDFs carry per-file rights,
 either `이용허락범위 제한없음` or KOGL Type 1; the smoke selection **only**
 allows unrestricted PDFs with verified tests and HTTPS original source URLs.
+The runner installs `huggingface_hub>=0.34,<2` separately from the core OCR package.
 The upstream revision SHA is captured before fetching and then pinned for
 all downloads. Two matching non-bulk pages are chosen in lexicographic order;
 selected PDF SHA-256, rights, source URL, original attribution, runner and
