@@ -147,6 +147,32 @@ class C22SourceTests(unittest.TestCase):
             self.assertEqual(len(extracted), 3)
             self.assertFalse((Path(tmp).parent / "untrusted.txt").exists())
 
+    def test_oversized_archive_blocks_score_but_not_receipt_intake(self):
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "receipt.jpeg"
+            image = Image.new("RGB", (360, 180), "white")
+            draw = ImageDraw.Draw(image)
+            for y in range(0, 180, 3):
+                draw.line((0, y, 359, y), fill=(y % 255, 60, 90))
+            image.save(source, quality=97)
+            class Api:
+                def dataset_info(self, repo):
+                    return SimpleNamespace(sha="a" * 40)
+                def list_repo_files(self, **kwargs):
+                    return ["GIST_Signboard/text_images.tar"]
+                def list_repo_tree(self, **kwargs):
+                    return [SimpleNamespace(path="GIST_Signboard/text_images.tar", size=1427559424)]
+            def download(**kwargs):
+                self.assertEqual(kwargs["repo_id"], RECEIPT_REPO)
+                return str(source)
+            with patch.dict(os.environ, {"OCR_C22_EXTERNAL_DATA_CONSENT": "1"}):
+                result = run_public(root / "out", api_factory=Api, download_factory=download)
+            self.assertEqual(result["real_korean_scene_crops"]["status"], "BLOCKED_RESOURCE_BUDGET")
+            self.assertIsNone(result["real_korean_scene_crops"]["aggregate"])
+            self.assertEqual(len(result["korean_receipt_review_queue"]), 2)
+            self.assertIsNone(result["real_korean_receipt_cer_wer"])
+
     def test_real_crops_score_only_published_labels(self):
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
