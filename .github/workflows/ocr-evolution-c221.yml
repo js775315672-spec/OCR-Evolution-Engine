@@ -5,6 +5,10 @@ on:
   pull_request:
     paths:
       - 'ocr_evolution/c221_audit.py'
+      - 'ocr_evolution/c221_source_intake.py'
+      - 'benchmarks/c221_real_receipt_review_queue.json'
+      - 'tests/test_c221_source_intake.py'
+      - 'tools/c221_offline_reviewer.html'
       - 'tests/test_c221_audit.py'
       - 'docs/OCR_EVOLUTION_C221.md'
       - '.github/workflows/ocr-evolution-c221.yml'
