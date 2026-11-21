@@ -1,0 +1,65 @@
+name: OCR C2.1 real-source and table structure evaluation
+on:
+  pull_request:
+    paths:
+      - 'ocr_evolution/**'
+      - 'tests/test_c21_real.py'
+      - '.github/workflows/ocr-evolution-c21.yml'
+      - 'pyproject.toml'
+  push:
+    branches: [feat/ocr-evolution-c1]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    name: Real data contract + structure (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -e ".[test]"
+      - run: python -m unittest discover -s tests -p test_c21_real.py -v
+  public-real-pages:
+    name: Real Korean public-sector PDF pages + verified unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      OCR_REAL_DATA_NETWORK_CONSENT: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '90'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install genuine OCR engine and Korean language
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-kor tesseract-ocr-eng
+      - name: Install PDF renderer and external dataset reader
+        run: |
+          python -m pip install -e ".[test]"
+          python -m pip install "huggingface_hub>=0.34,<2"
+      - name: Evaluate immutable pinned public-source PDF sample
+        run: python -m ocr_evolution.kdoc_public --output-dir reports/c21-real-public --sample-count 2
+      - name: Display honest scope and scores
+        run: cat reports/c21-real-public/public-results.md
+      - name: Archive evidence (NO source documents or raw transcriptions)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: c21-kdoc-real-public-verification
+          path: reports/c21-real-public/
+          if-no-files-found: warn
+          retention-days: 14
