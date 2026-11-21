@@ -12,7 +12,8 @@ from unittest.mock import Mock
 from PIL import Image
 
 from ocr_evolution.c221_audit import (validate_batch, evaluate_private_batch,
-                                      write_private_report, ci_gate_status)
+                                      write_private_report, ci_gate_status,
+                                      prepare_blind_review_templates)
 
 
 class C221AuditTests(unittest.TestCase):
@@ -160,6 +161,33 @@ class C221AuditTests(unittest.TestCase):
             self.assertEqual(json.loads(out.read_text())["cer"], 0.25)
             with self.assertRaises(FileExistsError):
                 write_private_report(out, {"cer": 0})
+
+    def test_prepare_requires_real_review_not_fake_success(self):
+        with TemporaryDirectory() as root:
+            batch = self.make_batch(root)
+            # Remove all fixtures before creating a fresh separate review intake.
+            for case in batch["cases"]:
+                for name in case["review_files"]:
+                    (Path(root) / name).unlink()
+            status = prepare_blind_review_templates(Path(root), [
+                "scan_00.png", "scan_01.png"])
+            self.assertEqual(status["approved_cases"], 0)
+            intake = json.loads((Path(root) / "review-intake.json").read_text())
+            self.assertEqual(len(intake["cases"]), 2)
+            self.assertFalse(intake["cases"][0]["permission_attested"])
+            self.assertFalse(intake["cases"][0]["verified_physical_capture"])
+            reviewer = json.loads((Path(root) / "reviews" / "reviewer_a_01.json").read_text())
+            self.assertFalse(reviewer["visual_review_attested"])
+            self.assertEqual(reviewer["transcription"], "")
+            with self.assertRaises(ValueError):
+                validate_batch(intake, Path(root))
+
+    def test_prepare_never_overwrites_existing_intake(self):
+        with TemporaryDirectory() as root:
+            self.make_batch(root)
+            prepare_blind_review_templates(Path(root), ["scan_00.png", "scan_01.png"])
+            with self.assertRaises(FileExistsError):
+                prepare_blind_review_templates(Path(root), ["scan_00.png", "scan_01.png"])
 
     def test_ci_cannot_claim_real_two_human_measurements(self):
         gate = ci_gate_status()
