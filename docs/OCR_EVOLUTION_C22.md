@@ -21,10 +21,16 @@ The C2.2 public-source script pins both Hugging Face dataset revisions as full
 SHA-1 commit IDs. K-STR-Bench publishes the GIST cropped images inside
 `GIST_Signboard/text_images.tar` rather than individual HF paths; the runner
 verifies archive size (maximum 750 MiB), fetches this pinned one archive only
-if necessary, and safely extracts ONLY three permitted Korean crop members
-without trusting tar paths. It then downloads the two receipt images. This is
-more network transfer than individual image access and is a C2.2 cost limit.
-It uses these five selected input images in the CI
+if within budget, and safely extracts ONLY three permitted Korean crop members
+without trusting tar paths. Actual GitHub CI revealed the GIST tar is
+**1,427,559,424 bytes**, so C2.2 deliberately records
+`BLOCKED_RESOURCE_BUDGET` with camera-crop CER/WER = **N/A** rather than
+downloading an oversized archive. The independently permissioned HumynLabs
+Korean receipt images are still acquired, hashed, and placed in the
+human-review intake queue. Those images have no complete transcription;
+their CER/WER is also **N/A**. This is a resource budget limit,
+not an observed recognition accuracy.
+It evaluates only source images actually within the bounded budget
 ephemeral runner, verifies their format/dimensions, and records per-image
 SHA-256, license, author attribution and reference source. **No source image,
 personal receipt text, unredacted OCR output or full human transcription is
@@ -119,8 +125,9 @@ runbook also supports sample-level source URLs for permitted public images.
 ## Completion gates
 
 1. CI Windows/Linux source-security, two-reviewer and metric tests PASS.
-2. Source network run PASS with real K-STR camera crops (attributed) and
-   reproducible source SHA/revision; report concrete CER/WER.
+2. Network/source run verifies K-STR GIST's archive metadata and **blocks**
+   CER/WER because the 1.43 GB image package exceeds the explicit 750 MiB
+   cap. This does not constitute a completed real-scene OCR evaluation.
 3. Humyn receipt images downloaded and hashed as candidate inputs, **not yet
    physically classified or given human verified transcriptions**.
 4. Full real physically scanned Korean document CER/WER remains **BLOCKED**
