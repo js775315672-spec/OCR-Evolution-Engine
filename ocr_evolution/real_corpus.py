@@ -56,10 +56,17 @@ def load_corpus(manifest_path: Path, root: Path):
             raise ValueError("unsafe or duplicate case id")
         if capture not in KINDS or category not in CATEGORIES:
             raise ValueError("invalid document classification")
-        source = case.get("source_url", "")
-        parsed = urlparse(source)
-        if parsed.scheme != "https" or not parsed.netloc:
-            raise ValueError("public provenance url required")
+        provenance_kind = case.get("provenance_kind", "public_https")
+        source = case.get("source_url")
+        if provenance_kind == "public_https":
+            parsed = urlparse(source if isinstance(source, str) else "")
+            if parsed.scheme != "https" or not parsed.netloc:
+                raise ValueError("public provenance HTTPS source required")
+        elif provenance_kind == "user_owned_local":
+            if case.get("permission_attested") is not True or source is not None:
+                raise ValueError("private data needs local owner permission attestation, without URL")
+        else:
+            raise ValueError("unknown provenance kind")
         if not isinstance(case.get("license"), str) or not case["license"].strip():
             raise ValueError("document license must be explicitly documented")
         img = _local_image(root, case.get("image"))
@@ -107,7 +114,8 @@ def evaluate_local_corpus(manifest_path: Path, corpus_root: Path,
         details.append({
             "case_id": case["case_id"], "category": case["category"],
             "capture_method": case["capture_method"], "sha256": case["sha256"],
-            "license": case["license"], "source_url": case["source_url"],
+            "license": case["license"], "source_url": case.get("source_url"),
+            "provenance_kind": case.get("provenance_kind", "public_https"),
             "cer": metric["char_errors"] / metric["reference_chars"] if metric else None,
             "wer": metric["word_errors"] / metric["reference_words"] if metric else None,
             "verified_snippet_recall": _presence(case.get("verified_snippets", []), observed),
