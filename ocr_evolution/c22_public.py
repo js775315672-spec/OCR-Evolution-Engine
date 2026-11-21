@@ -48,14 +48,14 @@ def inspect_image(path: Path):
     if len(raw) < 1024:
         raise ValueError("image too small to trust")
     with Image.open(path) as img:
-        if img.format not in ("JPEG", "PNG"):
-            raise ValueError("unexpected source format")
+        if img.format not in ("JPEG", "PNG", "MPO", "WEBP", "TIFF", "BMP"):
+            raise ValueError(f"unexpected source format: {img.format!r}")
         width, height = img.size
         if width * height > 25_000_000 or width < 20 or height < 20:
             raise ValueError("invalid pixel budget")
         img.verify()
     return {"image_sha256": sha256(raw).hexdigest(), "width": width,
-            "height": height, "image_bytes": len(raw)}
+            "height": height, "image_bytes": len(raw), "decoded_format": img.format}
 
 
 def measure_published_crops(download, invoke_ocr):
