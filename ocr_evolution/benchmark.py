@@ -92,7 +92,7 @@ def benchmark(manifest_path: Path, output_dir: Path, font_path: str,
     manifest, manifest_bytes = load_manifest(manifest_path)
     if not Path(font_path).is_file():
         raise FileNotFoundError("explicit Unicode font missing")
-    engine_version = _run([tesseract, "--version"])  # stderr holds version on some builds
+    version_process = subprocess.run([tesseract, "--version"], capture_output=True,\n                                     text=True, check=True, timeout=15)\n    engine_version = (version_process.stdout or version_process.stderr).strip()
     languages = _run([tesseract, "--list-langs"])
     if "kor" not in languages.split() or "eng" not in languages.split():
         raise RuntimeError("kor and eng traineddata are required")
