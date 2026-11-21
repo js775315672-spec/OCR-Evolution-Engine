@@ -8,7 +8,6 @@ import json
 import os
 from pathlib import Path
 import re
-from shutil import copyfileobj
 from hashlib import sha256
 
 from PIL import Image
@@ -22,11 +21,8 @@ def _private_directory(out_dir: Path):
     for parent in (result, *result.parents):
         if (parent / ".git").exists():
             raise ValueError("source scans and reviews cannot be stored within a Git checkout")
-    if out_dir.exists():
-        if out_dir.is_symlink() or not out_dir.is_dir():
-            raise ValueError("unsafe local output directory")
-        if any(out_dir.iterdir()):
-            raise FileExistsError("private output must be a new, empty directory")
+    if out_dir.exists() or out_dir.is_symlink():
+        raise FileExistsError("private output must be a new non-existing directory")
     return result
 
 
