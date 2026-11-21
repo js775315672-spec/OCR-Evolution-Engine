@@ -4,3 +4,7 @@ __pycache__/
 build/
 dist/
 ocr-data/
+private-ocr/
+private-ocr-c221/
+reports/c221-private/
+**/*.private.json
