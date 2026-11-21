@@ -26,6 +26,24 @@ transcriptions*, qualify for this phase. The program cannot prove the human
 identity or that either person really examined the original; those are
 explicit operator attestations requiring outside human supervision.
 
+### Optional browser review interface (offline)
+
+Open [tools/c221_offline_reviewer.html](../tools/c221_offline_reviewer.html)
+from the local repository in a browser, without internet. Each real reviewer
+opens the image and types the entire transcription, independently. The tool
+uses browser SHA-256 to bind the selected image bytes to the exported JSON
+and refuses to export unless each reviewer personally checks visual, blind
+and no-OCR-assistance attestations. It has no network APIs or external assets;
+a CSP blocks network connections. One reviewer exports
+`reviewer_a_01.json`, the other `reviewer_b_01.json`. Keep these files
+outside Git, put them in `reviews/` in the private root, and verify each
+file's reviewer identity and original image hash before running the CLI.
+
+The browser interface does **not** verify real identities and does **not**
+create independent second reviewer automatically. Browser support for image
+preview and `crypto.subtle` varies; use a compatible local browser or
+fill the JSON directly from the private templates.
+
 ## Local-only preparation workflow
 
 1. Select **2–10 physically captured paper documents**, ideally from at
