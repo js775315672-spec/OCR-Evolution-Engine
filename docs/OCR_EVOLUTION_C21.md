@@ -68,7 +68,8 @@ the images or personal documents):
     "sha256": "<64-char SHA-256 of uploaded real image>",
     "category": "korean",
     "capture_method": "flatbed_scan",
-    "source_url": "https://example.org/permitted-source",
+    "provenance_kind": "user_owned_local",
+    "permission_attested": true,
     "license": "evaluation permitted by owner",
     "transcription": "사람이 실제 이미지에서 확인한 전체 원문",
     "transcription_quality": "human_checked_full",
@@ -88,9 +89,10 @@ python -m ocr_evolution.real_corpus \
 
 The tool has no HTTP client, no upload or model-training side effects, and
 rejects missing/duplicated or tampered files. Local files are never committed.
-For private scans, provenance currently requires an authorized HTTPS source
-record; users without such a URL should add a dedicated private owner attestation
-schema rather than faking one.
+For private scans, use `provenance_kind: user_owned_local` and
+`permission_attested: true` with no source URL. For public scans, use
+`provenance_kind: public_https` and a genuine HTTPS origin URL. Neither
+path transmits the image off-device.
 
 ### C. Exact table-grid metric
 
