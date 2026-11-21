@@ -1,0 +1,18 @@
+$ python -m unittest tests.test_core -v
+Windows / Python 3.12.10
+
+test_g0_repository_boundaries (tests.test_core.CoreTests.test_g0_repository_boundaries) ... ok
+test_real_tesseract (tests.test_core.CoreTests.test_real_tesseract) ... skipped 'Tesseract absent on this machine'
+test_rejects_invalid_engine_coordinates (tests.test_core.CoreTests.test_rejects_invalid_engine_coordinates) ... ok
+test_rejects_malformed_and_excess_pages (tests.test_core.CoreTests.test_rejects_malformed_and_excess_pages) ... ok
+test_renders_each_page (tests.test_core.CoreTests.test_renders_each_page) ... ok
+test_sqlite_round_trip_and_rollback (tests.test_core.CoreTests.test_sqlite_round_trip_and_rollback) ... ok
+test_tesseract_tsv_contract (tests.test_core.CoreTests.test_tesseract_tsv_contract) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.219s
+
+OK (skipped=1)
+
+FastAPI dependency and Tesseract are unavailable in the local environment.
+Python 3.11 API tests and the actual OCR smoke test are configured in GitHub Actions.
