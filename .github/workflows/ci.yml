@@ -1,0 +1,33 @@
+name: OCR checks
+on:
+  pull_request:
+  push:
+    branches: [feat/ocr-mvp]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OCR_REQUIRE_TESSERACT: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-eng
+      - run: python -m pip install '.[test]'
+      - name: Unit, contract, integration, security and isolation checks
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m unittest discover -v 2>&1 | tee test-results.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ocr-test-results
+          path: test-results.txt
+          retention-days: 14

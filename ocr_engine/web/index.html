@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OCR Evolution Engine</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>OCR Evolution Engine</h1>
+    <form id="upload">
+      <label for="pdf">비교할 PDF</label>
+      <input id="pdf" type="file" accept="application/pdf,.pdf" required>
+      <button id="submit">OCR 실행</button>
+    </form>
+    <p id="status" role="status">최대 12페이지 · 16 MiB</p>
+    <div id="result" hidden>
+      <nav aria-label="문서 탐색">
+        <label for="page">페이지</label>
+        <select id="page"></select>
+        <label><input type="checkbox" id="boxes" checked> 인식 영역 표시</label>
+        <a id="original" download>원본 PDF 다운로드</a>
+      </nav>
+      <div class="comparison">
+        <section><h2>원본 페이지</h2><canvas id="preview" role="img" aria-label="원본 PDF 페이지와 인식 영역"></canvas></section>
+        <section><h2>인식 결과</h2><p id="words"></p></section>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
