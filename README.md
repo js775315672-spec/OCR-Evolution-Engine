@@ -67,6 +67,7 @@ python -m ocr_evolution.benchmark --font /usr/share/fonts/truetype/nanum/NanumGo
 - 실제 스캔/카메라 사진: `ocr_evolution.real_corpus` 로컬 CLI는 파일 해시·사용권한·수동 정답 전문을 검사한 후에만 **CER/WER**를 측정합니다. 로컬 파일을 GitHub에 업로드하지 않습니다.
 - 표 구조: `score_grid()`로 행/열 위치별 셀 및 인접 관계 F1을 측정합니다. 실제 공공 PDF에서는 Tesseract TSV의 상하좌우 관계 검사도 수행합니다. 이는 완전한 TEDS/병합 셀 인식과 다릅니다.
 - 공개 PDF는 사람 검토를 거친 **일부 문장·셀 정답**만 제공하므로 문서 전체의 CER/WER는 `N/A`로 표시합니다. 물리적 스캔 평가 건수는 실제 입력이 있을 때만 증가합니다.
+- 실제 공개문서 기준선([CI 실행](../../actions/runs/44926387420)): 2쪽, 정답 문장 3/5, 표 셀 텍스트 180/289, 방향 관계 24/917(2.62%). **엄격한 기하학적 프록시**일 뿐 표 전체 구조 F1이나 TEDS가 아닙니다. CER/WER는 전문 수동 정답이 없어 N/A입니다.
 - 실제 CI: [C2.1 public OCR & table checks](.github/workflows/ocr-evolution-c21.yml) · [평가 설계·실행법](docs/OCR_EVOLUTION_C21.md).
 
 ```sh
