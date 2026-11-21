@@ -103,6 +103,26 @@ strings must agree; swapped columns fail. An engine that outputs only flat OCR
 text supplies `predicted=None` and receives **not measurable**, not a
 fabricated 0% or 100%. Ragged/merged cells require a future span-aware schema.
 
+## 1.1 Measured initial real-public-document baseline
+
+At the run [44926387420](https://github.com/js775315672-spec/OCR-Evolution-Engine/actions/runs/44926387420),
+the two unrestricted public PDFs (SHA-256 prefixes `86f0646764e7`,
+`e3dea98e43bd`) produced:
+
+| Metric | First PDF | Second PDF | Aggregate |
+|---|---:|---:|---:|
+| Verified exact sentence presence | 3/4 | 0/1 | 3/5 |
+| Verified exact cell-text presence | 81/157 | 99/132 | 180/289 |
+| Verified direction checks from Tesseract TSV | 6/592 | 18/325 | 24/917 |
+| Full-page CER/WER | N/A | N/A | N/A |
+| Complete table-grid F1/TEDS | N/A | N/A | N/A |
+
+The directional-check pass rate is 24/917 (about 2.62%); it is a **very
+strict and uncalibrated geometry proxy** with conservative ambiguous-text
+failures, not an official KDoc score. There are only two pages, and neither
+is known to be a physical paper scan. No tuning on these publicly visible
+cases can count as independent improvement.
+
 ## 2. Required CI gates
 
 - Windows and Linux: all security, source-rights, source-integrity, table-cell,
