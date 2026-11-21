@@ -16,6 +16,7 @@ from time import perf_counter
 import fitz
 
 from .metrics import normalize
+from .geometry import check_verified_table_adjacency
 
 
 DATASET_ID = "ONTHEIT/KDoc-OCRBench-V2"
@@ -73,7 +74,8 @@ def choose_docs(licenses, text_groups, table_groups, *, limit=2):
         if (rights.get("license") != UNRESTRICTED or
             not rights.get("source_url", "").startswith("https://") or
             not pdf.endswith(".pdf") or pdf not in text_groups or
-            pdf not in table_groups):
+            pdf not in table_groups or not any(any(item.get(d) for d in ("up", "down", "left", "right"))
+                                          for item in table_groups[pdf])):
             continue
         # Avoid giant bulk-format files; just a reproducible non-random smoke subset.
         if pdf.startswith("(대량") or len(pdf) > 150:
@@ -140,9 +142,13 @@ def evaluate_public(out_dir: Path, *, sample_count=2):
             process = subprocess.run(["tesseract", str(img), "stdout", "-l", "kor+eng",
                                       "--psm", "11"], capture_output=True, text=True,
                                      timeout=90, check=True)
+            tsv_process = subprocess.run(["tesseract", str(img), "stdout", "-l", "kor+eng",
+                                          "--psm", "11", "tsv"], capture_output=True,
+                                         text=True, timeout=90, check=True)
         finally:
             img.unlink(missing_ok=True)
         observed = process.stdout.strip()
+        geometry = check_verified_table_adjacency(tsv_process.stdout, tables[name])
         rights = license_data[name]
         entries.append({
             "source_pdf": name, "license": rights["license"],
@@ -152,12 +158,15 @@ def evaluate_public(out_dir: Path, *, sample_count=2):
             "elapsed_ms": round((perf_counter() - start) * 1000),
             "text_presence": score_verified_text(observed, texts[name]),
             "table_cell_text_presence": score_table_text(observed, tables[name]),
+            "verified_neighbor_geometry": geometry,
             "structured_table_adjacency_f1": None,
-            "table_structure_reason": "Tesseract plain text does not output row/column cell graph",
+            "table_structure_reason": "Only verified-neighbor geometry; no exact cell grid emitted",
             "cer": None, "wer": None,
             "ground_truth_limit": "verified fragments; no full human-checked transcript",
             "capture_type": "rasterized_authentic_public_pdf_not_physical_scan",
         })
+    neighbor_checks = sum(row["verified_neighbor_geometry"]["checked"] for row in entries)
+    neighbor_matches = sum(row["verified_neighbor_geometry"]["matched"] for row in entries)
     report = {
         "schema_version": 1, "dataset": DATASET_ID,
         "dataset_revision": revision, "dataset_annotation_license": ANNOTATION_LICENSE,
@@ -169,20 +178,24 @@ def evaluate_public(out_dir: Path, *, sample_count=2):
         "run_id": os.getenv("GITHUB_RUN_ID", "local"),
         "git_sha": os.getenv("GITHUB_SHA", "local"),
         "cases": entries, "cer": None, "wer": None, "table_topology_accuracy": None,
+        "strict_table_directional_accuracy": (neighbor_matches / neighbor_checks
+                                               if neighbor_checks else None),
+        "verified_relation_checks": neighbor_checks, "verified_relation_matches": neighbor_matches,
         "independent_holdout": False, "promotion_eligible": False,
-        "limitations": "No full gold transcription, no physical scans, no structured table parser. Exact substring recall is not the source benchmark official fuzzy score.",
+        "limitations": "No full gold transcription, no physical scans, no structured table parser. Conservative TSV geometric direction checks are not TEDS or full grid quality. Exact substring recall is not the source benchmark official fuzzy score.",
     }
     (out_dir / "public-results.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     rows = ["# C2.1 real-public-document smoke test", "",
             "Sources are real Korean public-sector PDFs, NOT physical scanner captures.",
             "Verified unit assertions are attributed to ONTHEIT (CC BY 4.0).", "",
-            "| PDF (sha256 prefix) | Text present | Table cell text | CER/WER | Table structure |",
-            "|---|---:|---:|---|---|"]
+            "| PDF (sha256 prefix) | Text present | Table cell text | Neighbor directions | CER/WER | Full grid |",
+            "|---|---:|---:|---:|---|---|"]
     for item in entries:
         t = item["text_presence"]; v = item["table_cell_text_presence"]
-        rows.append(f'| {item["pdf_sha256"][:12]} | {t["matched"]}/{t["checked"]} | {v["matched"]}/{v["checked"]} | N/A | N/A |')
-    rows.extend(["", "Human-reviewed full-text ground truth and table-grid predictions are unavailable.",
+        g = item["verified_neighbor_geometry"]
+        rows.append(f'| {item["pdf_sha256"][:12]} | {t["matched"]}/{t["checked"]} | {v["matched"]}/{v["checked"]} | {g["matched"]}/{g["checked"]} | N/A | N/A |')
+    rows.extend(["", "Human-reviewed full-text ground truth and full table-grid predictions are unavailable.",
                  "No OCR model changes or automatic promotion.", ""])
     (out_dir / "public-results.md").write_text("\n".join(rows), encoding="utf-8")
     return report
