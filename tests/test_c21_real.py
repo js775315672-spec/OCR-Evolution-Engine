@@ -60,7 +60,7 @@ class PublicUnitTests(TestCase):
             "b.pdf": {"license": "restricted", "source_url": "https://example.org/b"},
             "c.pdf": {"license": "이용허락범위 제한없음", "source_url": "https://example.org/c"},
         }
-        groups = {"a.pdf": [1], "b.pdf": [2], "c.pdf": [3]}
+        groups = {"a.pdf": [{"right": "A"}], "b.pdf": [{"right": "B"}], "c.pdf": [{"right": "C"}]}
         self.assertEqual(choose_docs(rights, groups, groups, limit=1), ["a.pdf"])
         with self.assertRaises(ValueError):
             choose_docs(rights, groups, groups, limit=3)
