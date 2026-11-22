@@ -63,3 +63,53 @@ jobs:
           name: c221-gate-BLOCKED-no-human-scans
           path: reports/c221-status/status.json
           retention-days: 14
+
+  public-source-replay:
+    name: Hash-pinned Korean receipt images (2, unreviewed; real network)
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    env:
+      OCR_C221_EXTERNAL_DATA_CONSENT: '1'
+      HF_HUB_DOWNLOAD_TIMEOUT: '90'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install strict source verification dependencies
+        run: |
+          python -m pip install -e ".[test]"
+          python -m pip install "huggingface_hub>=0.34,<2"
+      - name: Replay exact pinned source download outside Git checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m ocr_evolution.c221_source_intake \
+            --queue benchmarks/c221_real_receipt_review_queue.json \
+            --private-dir "$RUNNER_TEMP/c221-private-source"
+          mkdir -p reports/c221-source-evidence
+          cp "$RUNNER_TEMP/c221-private-source/REVIEW_STATUS.json" \
+             reports/c221-source-evidence/status.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path("reports/c221-source-evidence/status.json").read_text())
+          assert d["source_images_checked"] == 2
+          assert d["physical_capture_verified"] is False
+          assert d["two_independent_full_human_transcriptions"] == 0
+          assert d["actual_paper_scan_cer"] is None
+          assert d["actual_paper_scan_wer"] is None
+          assert d["promotion_eligible"] is False
+          print("Actual source bytes verified: 2; independent real-paper/human review: BLOCKED")
+          PY
+          echo "PUBLIC INPUTS=2 EXACT HASH MATCH; PAPER ORIGIN/HUMAN GT=BLOCKED" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload ONLY redacted source provenance and blocked evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c221-public-source-replay-no-images
+          path: reports/c221-source-evidence/status.json
+          if-no-files-found: warn
+          retention-days: 14
