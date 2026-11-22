@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "phase": "C2.2.1",
+  "role": "actual_public_image_intake_unreviewed_not_a_real_scan_benchmark",
+  "upstream_dataset": "HumynLabs/Korean_Receipts_Dataset",
+  "upstream_commit": "656cef561f4b8ff22e46d6785bc2807e78af99a1",
+  "upstream_license_claim": "CC-BY-4.0",
+  "source_github_run": "https://github.com/js775315672-spec/OCR-Evolution-Engine/actions/runs/44958514838",
+  "artifact_name": "c22-real-korean-ocr-metrics-no-images",
+  "per_image_physical_capture_verified": false,
+  "permission_to_run_local_research_according_to_dataset_license": true,
+  "two_independent_human_full_transcripts": 0,
+  "local_source_images_present": false,
+  "independent_holdout": false,
+  "promotion_eligible": false,
+  "cases": [
+    {
+      "case_id": "korean_receipt_01",
+      "upstream_path": "Kgen_Korean Receipts_1005_1.JPEG",
+      "sha256": "164b8db862c88d020db6f3d0d2a456297d45cca20c3247022b0e88f3387ed19f",
+      "decoded_format": "MPO",
+      "width": 1536,
+      "height": 2048,
+      "image_bytes": 1201880,
+      "physical_capture_evidence": "NOT_VERIFIED",
+      "human_review_evidence": "NOT_PROVIDED",
+      "cer": null,
+      "wer": null,
+      "status": "BLOCKED_UNVERIFIED_PHYSICAL_ORIGIN_AND_HUMAN_GT"
+    },
+    {
+      "case_id": "korean_receipt_02",
+      "upstream_path": "Kgen_Korean Receipts_1005_2.JPEG",
+      "sha256": "5341ec7bae0ad68386a8bb75276c447d0b0ede5699ee3fb91d4b0920f698c6f8",
+      "decoded_format": "MPO",
+      "width": 1536,
+      "height": 2048,
+      "image_bytes": 1172259,
+      "physical_capture_evidence": "NOT_VERIFIED",
+      "human_review_evidence": "NOT_PROVIDED",
+      "cer": null,
+      "wer": null,
+      "status": "BLOCKED_UNVERIFIED_PHYSICAL_ORIGIN_AND_HUMAN_GT"
+    }
+  ]
+}

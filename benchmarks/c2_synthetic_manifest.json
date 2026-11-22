@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "source": "original_synthetic_fixtures",
+  "license": "CC0-1.0",
+  "split": "development",
+  "notes": "Illustrative programmatically rendered fixtures only; not an independent hidden OCR benchmark.",
+  "cases": [
+    {
+      "case_id": "ko_basic_01",
+      "category": "korean",
+      "expected_text": "안녕하세요 반갑습니다\n오늘도 좋은 하루입니다"
+    },
+    {
+      "case_id": "ko_basic_02",
+      "category": "korean",
+      "expected_text": "물리치료 재활 운동 기록\n무릎 관절 움직임 평가"
+    },
+    {
+      "case_id": "table_01",
+      "category": "table",
+      "expected_text": "품목\t수량\t가격\n사과\t2\t3000\n배\t1\t2000"
+    },
+    {
+      "case_id": "table_02",
+      "category": "table",
+      "expected_text": "날짜\t운동\t횟수\n월요일\t스쿼트\t10\n화요일\t걷기\t30"
+    },
+    {
+      "case_id": "low_quality_01",
+      "category": "low_quality",
+      "expected_text": "재활 치료 시간 안내\n오전 아홉 시 시작"
+    },
+    {
+      "case_id": "low_quality_02",
+      "category": "low_quality",
+      "expected_text": "OCR TEST SAMPLE\nLOW QUALITY SCAN"
+    }
+  ]
+}

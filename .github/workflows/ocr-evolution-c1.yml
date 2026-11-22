@@ -1,0 +1,25 @@
+name: OCR Evolution C1 independent gates
+on:
+  push:
+    branches: [feat/ocr-evolution-c1]
+  pull_request:
+    paths:
+      - 'ocr_evolution/**'
+      - 'tests/test_evolution.py'
+      - '.github/workflows/ocr-evolution-c1.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-evaluation:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Independent fail-closed tests
+        run: python -m unittest discover -s tests -p test_evolution.py -v

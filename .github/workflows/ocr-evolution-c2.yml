@@ -1,0 +1,69 @@
+name: OCR Evolution C2 metrics and synthetic OCR
+on:
+  push:
+    branches: [feat/ocr-evolution-c1]
+  pull_request:
+    paths:
+      - 'ocr_evolution/**'
+      - 'tests/test_c2_metrics.py'
+      - 'benchmarks/**'
+      - 'pyproject.toml'
+      - '.github/workflows/ocr-evolution-c2.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  metrics:
+    name: Metrics and data contracts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install independent OCR evaluation dependencies
+        run: python -m pip install -e ".[test]"
+      - name: Strict CER/WER and fixture-contract tests
+        run: python -m unittest discover -s tests -p test_c2_metrics.py -v
+
+  real-synthetic-ocr:
+    name: Linux synthetic Tesseract measurements
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Tesseract Korean and open-source fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-kor fonts-nanum fontconfig
+      - name: Install OCR benchmark dependency
+        run: python -m pip install -e ".[benchmark]"
+      - name: Render actual PNGs and measure OCR outputs (development only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          FONT="$(fc-match -f '%{file}' 'NanumGothic')"
+          test -f "$FONT"
+          echo "Using font: $FONT"
+          python -m ocr_evolution.benchmark --font "$FONT" --manifest benchmarks/c2_synthetic_manifest.json --out-dir reports/c2
+          cat reports/c2/results.md
+      - name: Archive images, predictions, per-case CER/WER and source provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c2-synthetic-dev-ocr-results
+          path: reports/c2/
+          if-no-files-found: warn
+          retention-days: 14

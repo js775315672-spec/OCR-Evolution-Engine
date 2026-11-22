@@ -45,3 +45,92 @@ python -m unittest discover -v
 | Harness-Ouroboros-MCP | `6b44c67a4f69cdc7cbbd983356e5795a551b48fc` |
 | Cerberus | `bdc1589516f0348e23efe0a61d3cac163ce5be29` |
 | Fenrir-Agent | `b1454fc9bab573b7018103cce35e9a443b68dfd4` |
+
+## C2 · 한국어/표/저화질 CER·WER 평가 (Draft PR #2)
+
+- 공개된 **합성 개발용** 원본 6건(한국어 2, 3열 표 2, 저화질 2)의 정답 문장과 재현 가능한 PNG 생성기: [평가셋](benchmarks/c2_synthetic_manifest.json)
+- 실제 Tesseract `kor+eng` 실행 후 **CER/WER, 케이스별 실패, 매니페스트/이미지 SHA-256**를 JSON·Markdown·PNG 아티팩트로 저장: [C2 워크플로](.github/workflows/ocr-evolution-c2.yml)
+- Unicode NFC 정규화 및 Levenshtein 거리 기반, 값이 100% 초과해도 기록. Windows·Linux 계산/계약 테스트 및 Linux 실제 OCR 평가.
+- 실행 방법·평가의 한계·숨겨진 독립 평가셋 선행조건은 [C2 명세](docs/OCR_EVOLUTION_C2.md) 참조.
+- **중요:** 합성 개발셋의 테스트 통과는 한국어 실문서 성능이나 자율 모델 개선이 입증되었다는 뜻이 아니며, 자동 승격/병합 기능은 없음.
+
+```sh
+python -m pip install -e ".[test,benchmark]"
+python -m unittest discover -s tests -p 'test_c2_metrics.py' -v
+# Ubuntu + NanumGothic + Tesseract kor/eng 설치 후
+python -m ocr_evolution.benchmark --font /usr/share/fonts/truetype/nanum/NanumGothic.ttf
+```
+
+## C2.1 · 실제 한국어 문서·표 구조 검증
+
+- 실제 한국어 공개 문서: ONTHEIT/KDoc-OCRBench-V2에서 **재현 가능한 2쪽**을 선택해 Tesseract로 OCR을 수행합니다. 원본은 CI 실행 중에만 받아 사용하고, 검증된 문장·표 셀·기하학적 인접 관계만 측정합니다. 데이터 출처·권리·수정 불가능한 업스트림 커밋·문서 SHA를 보존합니다.
+- 실제 스캔/카메라 사진: `ocr_evolution.real_corpus` 로컬 CLI는 파일 해시·사용권한·수동 정답 전문을 검사한 후에만 **CER/WER**를 측정합니다. 로컬 파일을 GitHub에 업로드하지 않습니다.
+- 표 구조: `score_grid()`로 행/열 위치별 셀 및 인접 관계 F1을 측정합니다. 실제 공공 PDF에서는 Tesseract TSV의 상하좌우 관계 검사도 수행합니다. 이는 완전한 TEDS/병합 셀 인식과 다릅니다.
+- 공개 PDF는 사람 검토를 거친 **일부 문장·셀 정답**만 제공하므로 문서 전체의 CER/WER는 `N/A`로 표시합니다. 물리적 스캔 평가 건수는 실제 입력이 있을 때만 증가합니다.
+- 실제 공개문서 기준선([CI 실행](../../actions/runs/44926387420)): 2쪽, 정답 문장 3/5, 표 셀 텍스트 180/289, 방향 관계 24/917(2.62%). **엄격한 기하학적 프록시**일 뿐 표 전체 구조 F1이나 TEDS가 아닙니다. CER/WER는 전문 수동 정답이 없어 N/A입니다.
+- 실제 CI: [C2.1 public OCR & table checks](.github/workflows/ocr-evolution-c21.yml) · [평가 설계·실행법](docs/OCR_EVOLUTION_C21.md).
+
+```sh
+python -m pip install -e ".[test]"
+python -m unittest discover -s tests -p "test_c21*.py" -v
+# 공개 문서 2쪽을 실제 실행할 때만 다음 명령 사용 (네트워크 다운로드)
+python -m pip install "huggingface_hub>=0.34,<2"
+OCR_REAL_DATA_NETWORK_CONSENT=1 python -m ocr_evolution.kdoc_public --sample-count 2
+# 실제 개인 소유 스캔은 로컬에서만 평가
+python -m ocr_evolution.real_corpus --manifest /private/ocr/manifest.json --corpus-root /private/ocr
+```
+
+**원칙:** 개발·평가 데이터가 공개되어 있어도 숨겨진 독립 평가 또는 자율 지능 향상으로 간주하지 않으며, 모델 자동 업데이트와 자동 병합은 차단합니다.
+
+## C2.2 · 실제 촬영 한국어 OCR 및 수동 전사 정답 수집 게이트
+
+**개발 중인 C2.2 평가 트랙은 문서 유형을 구분합니다.** 한국어 실사 촬영 간판 글자 3개([K-STR-Bench GIST-Signboard](https://huggingface.co/datasets/hoonisone/K-STR-Bench), 해당 부분집합 CC BY 4.0)를 평가하도록 구현했지만, 공식 이미지 압축 파일이 **1,427,559,424 bytes**여서 750MiB 다운로드 한도에 따라 **BLOCKED**, 현재 CER/WER는 **N/A**야. 향후 더 작은 라이선스 확인 데이터나 별도 승인된 다운로드에서만 실제 수치를 산출해. 하지만 간판은 영수증·종이 스캔 문서가 아니므로 별도 지표로만 보고합니다.
+
+한국어 영수증 원본 후보 2개([HumynLabs](https://huggingface.co/datasets/HumynLabs/Korean_Receipts_Dataset), CC BY 4.0)는 실제 공개 이미지를 CI에서 받아 파일 해시를 기록하고, 물리적 촬영 여부 및 사람의 완전 전사문을 확인하기 전에는 CER/WER를 **N/A**로 고정합니다. 원본 이미지와 OCR 원문은 GitHub CI 아티팩트에 업로드하지 않습니다.
+
+실제 개인 소유 사진/스캔의 CER/WER 측정에는 **동일 이미지 SHA-256에 대한 서로 다른 두 사람의 직접 시각 전사·명시적 사용 권한·촬영 방식 검증**이 필요합니다. OCR이 스스로 제안한 텍스트는 정답으로 승격할 수 없습니다. 실물 스캔 확보와 한국어 실사 간판 시험은 동일한 성과가 아닙니다.
+
+- [실제 공개 사진 OCR 및 자료 수집 CI](.github/workflows/ocr-evolution-c22.yml)
+- [실물 스캔 2인 수동 전사·권리·CER/WER 절차](docs/OCR_EVOLUTION_C22.md)
+- 데이터 출처: Han & Hong (ACCV 2026) K-STR-Bench, HumynLabs Korean Receipts Dataset
+- 완료 판정: Windows/Linux 계약 테스트·실제 사진 CI PASS + 실물 문서 수동 정답 및 독립 홀드아웃은 **미완료 게이트**로 분리
+
+```sh
+python -m pip install -e ".[test]"
+python -m unittest discover -s tests -p "test_c22*.py" -v
+# Linux: tesseract-ocr / eng / kor 와 huggingface_hub 설치 후
+OCR_C22_EXTERNAL_DATA_CONSENT=1 python -m ocr_evolution.c22_public --output-dir reports/c22
+# 실물 사진을 두 명이 각각 직접 전사한 다음에만:
+python -m ocr_evolution.c22_review --review-request /private/ocr/reviews.json --image-root /private/ocr --out-manifest /private/ocr/audited_manifest.json
+python -m ocr_evolution.real_corpus --manifest /private/ocr/audited_manifest.json --corpus-root /private/ocr --output /private/ocr/measured.json
+```
+
+**안전:** Ouroboros/Cerberus/Fenrir와 기억·실행권·데이터를 공유하지 않으며 `main` 변경·자동 병합·OCR 모델 자동 승격을 수행하지 않습니다.
+
+### C2.2.1 실제 공개 이미지 2건 검수 대기 원장
+
+- 실제 GitHub Actions [44958514838](../../actions/runs/44958514838)에서 공개 한국어 영수증 이미지 2건을 내려받았으며, 이미지 SHA-256·원본 데이터셋 커밋·디코딩 형식을 [출처 대기 원장](benchmarks/c221_real_receipt_review_queue.json)에 고정했습니다.
+- [원본 확인/로컬 보관 명령](ocr_evolution/c221_source_intake.py)은 정확한 파일 해시·크기·형식 검증 후 **Git 저장소 밖의 새 비공개 디렉터리**에만 저장합니다. 네트워크 동의가 필요하고, 중복 파일·소스 변조·덮어쓰기를 차단합니다.
+- **검증 범위:** 두 파일은 공개 데이터셋의 실제 이미지로 확인됐지만 원본이 실제 종이 촬영인지 불명확하며 두 사람의 전체 전사문도 없으므로 두 건 모두 CER/WER **N/A**, 실물 검수 **BLOCKED**입니다.
+- [2인 실제 전사 검수/자료 획득 절차](docs/OCR_EVOLUTION_C221.md) · 기존 오프라인 전사 입력 화면은 별도 운영하며 GitHub에 개인 검수 원본을 올리지 않습니다.
+
+## C2.2.1 · 실물 스캔 2–10건 독립 수동 전사·CER/WER 게이트
+
+**오프라인 입력 도구 추가:** [실물 사진을 보면서 작성하는 2인 독립 전사 화면](tools/c221_offline_reviewer.html)을 각 검토자가 별도로 열어 이미지 SHA-256을 확인하고 JSON을 저장할 수 있습니다. 화면에는 외부 스크립트/네트워크 연결이 없고, 체크박스를 사용자가 직접 선택해야 하며, 한 명이 다른 사람의 검토를 대신할 수 없습니다. 검토 원본은 GitHub에 업로드하지 마세요.
+
+
+
+- 2~10장의 실제 종이 문서 촬영·스캔 원본을 외부 승인된 **비공개 로컬 폴더**에 보관하고, 문서 출처/사용 권한·원본 SHA-256·서로 다른 출처 그룹 2개 이상을 검증하는 `c221_audit` 실행기를 추가했습니다.
+- 별도 파일에 제출된 **서로 다른 두 사람의 블라인드 전체 전사문**이 동일해야 OCR 비교가 가능해집니다. 불일치, 경로 이탈, 위조 해시, 권한 미확인, 기계 OCR 전사 재사용은 **전체 평가 차단**으로 처리합니다.
+- 최종 측정은 실제 Tesseract `kor+eng`와 문자/단어 Levenshtein 계산으로 진행하고, 외부 공개용 결과에는 이미지·전사 원문·개인정보 대신 점수/카운트와 원본 해시만 기록합니다.
+- [C2.2.1 2인 검토 절차](docs/OCR_EVOLUTION_C221.md) · [Windows·Linux CI](.github/workflows/ocr-evolution-c221.yml)
+- **중요:** 자동 CI의 리뷰어와 이미지는 **테스트용 가상 자료**입니다. 지금까지 독립적인 실제 사람 2명이 검토한 실물 스캔 2~10장은 제공되지 않았으므로 실문서 CER/WER 게이트는 **BLOCKED**, 실제 측정값은 `N/A`입니다. 코드 테스트 PASS가 실문서 검증 완료를 뜻하지 않습니다.
+
+```sh
+python -m pip install -e ".[test]"
+python -m unittest discover -s tests -p test_c221_audit.py -v
+# 실제 소유 문서의 사진 2~10장을 Git 저장소 밖 안전한 로컬 폴더에 넣은 다음:
+python -m ocr_evolution.c221_audit --root /private/private-ocr-c221 --prepare-images scan_01.png scan_02.png
+# 서로 다른 실제 검토자가 각자 입력 파일을 작성해 합의 후:
+python -m ocr_evolution.c221_audit --batch /private/private-ocr-c221/review-intake.json --root /private/private-ocr-c221 --private-output /private/private-ocr-c221/results/c221_metrics.json
+```
